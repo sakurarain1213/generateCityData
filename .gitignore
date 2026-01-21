@@ -1,0 +1,55 @@
+# Ignore all files by default
+*
+
+# But keep Python files
+!*.py
+
+# And keep Markdown files  
+!*.md
+
+# Keep directories (so we can traverse them)
+!*/
+
+# Ignore specific directories and their contents
+output/
+三年结构化城市数据表/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Ignore CSV and other data files
+*.csv
+*.json
+*.jsonl
+*.xlsx
+*.xls
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore log files
+*.log

@@ -79,7 +79,7 @@ CITY_POPULATION_WEIGHTS = {
 
 #### 幂律分布参数
 ```python
-POWER_LAW_ALPHA = 2.5  # 幂律分布指数（越大，长尾越明显）
+POWER_LAW_ALPHA = 1.8  # 幂律分布指数（越大，长尾越明显）
 ```
 
 #### 城市人口噪声

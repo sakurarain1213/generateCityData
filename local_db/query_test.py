@@ -78,11 +78,12 @@ def extract_type_features(conn):
 
     # 维度定义（仅作参考，用于代码逻辑对照）
     # D1: gender (M/F)
-    # D2: lifecycle (16-24/25-34...)
+    # D2: lifecycle (16-24/25-34...) -> 编码为20/30/40/55/65
     # D3: education (EduLo/EduMid...)
     # D4: industry (Mfg/Service...)
     # D5: income (IncL/IncM...)
     # D6: family_status (Split/Unit)
+    # D7: city_code (城市编码，如1100/3100)
 
     count = 0
     with open(JSONL_FILE, 'w', encoding='utf-8') as f:
@@ -90,23 +91,24 @@ def extract_type_features(conn):
             type_id = t[0]
             parts = type_id.split('_')
 
-            # 确保切分出 6 个部分，防止数据异常导致报错
-            if len(parts) == 6:
+            # 确保切分出 7 个部分（包含城市编码D7）
+            if len(parts) == 7:
                 feature_dict = {
-                    "type": type_id,          # 原始 ID
+                    "id": type_id,          # 原始 ID
                     "gender": parts[0],          # D1: 性别
-                    "age": parts[1],       # D2: 生命周期 (年龄段)
-                    "edu": parts[2],       # D3: 学历
-                    "job": parts[3],        # D4: 行业赛道
+                    "age": parts[1],             # D2: 生命周期 (编码后的年龄)
+                    "edu": parts[2],             # D3: 学历
+                    "job": parts[3],             # D4: 行业赛道
                     "income": parts[4],          # D5: 相对收入
-                    "family": parts[5]    # D6: 家庭状态
+                    "family": parts[5],          # D6: 家庭状态
+                    "dialect": parts[6]             # D7: 城市编码
                 }
-                
+
                 # 写入 JSONL (一行一个 JSON 对象)
                 f.write(json.dumps(feature_dict, ensure_ascii=False) + '\n')
                 count += 1
             else:
-                print(f"[WARN] 跳过格式异常的 ID: {type_id}")
+                print(f"[WARN] 跳过格式异常的 ID: {type_id} (期望7个部分，实际{len(parts)}个)")
 
     elapsed = time.time() - start_time
     print(f"✅ 成功导出 {count} 条特征记录。")

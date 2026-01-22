@@ -12,111 +12,141 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import cpu_count
 import traceback
+import random
 import warnings
 warnings.filterwarnings('ignore')
 
-from config import CITIES, OUTPUT_YEARS, OUTPUT_MONTHS, TOP_N_CITIES, OUTPUT_DIR, OUTPUT_FILENAME
-from type_generator import generate_all_types, type_to_id
+from config import CITIES, OUTPUT_YEARS, OUTPUT_MONTHS, TOP_N_CITIES, OUTPUT_DIR, OUTPUT_FILENAME, REGION_CODES
+from type_generator import generate_city_types, type_to_id
 from migration_model import MigrationModel
-from population_distribution import generate_type_counts, filter_valid_types
+from population_distribution import generate_city_type_counts_economics_based, filter_valid_types
 from population_distribution import calculate_city_type_count
 
 
 def process_type_batch_optimized(
-    type_ids_batch: List[str], 
-    type_id_to_dict: Dict, 
+    type_ids_batch: List[str],
+    type_id_to_dict: Dict,
     valid_type_counts: Dict
 ) -> List[Dict]:
     """
     优化版子进程工作函数：处理一批Type的数据生成
+    注意：Type已经包含了城市信息(D7)，所以不需要再遍历所有城市
     """
     try:
         # 每个进程独立实例化模型，避免跨进程共享状态问题
         local_migration_model = MigrationModel()
         batch_rows = []
-        
-        # 提前计算一些常量，避免重复计算
-        cities_list = list(CITIES)
-        
+
         for type_id in type_ids_batch:
             if type_id not in type_id_to_dict:
                 continue
-            
+
             type_dict = type_id_to_dict[type_id]
+            city_code = type_dict['D7']  # 从Type中获取城市编码
             global_type_count = valid_type_counts[type_id]
-            
-            # 为每个城市生成数据
-            for city_code, city_name in cities_list:
-                # 为每个年月生成一行
-                for year in OUTPUT_YEARS:
-                    for month in OUTPUT_MONTHS:
-                        try:
-                            # 1. 计算人口数
-                            # 使用确定性Hash作为种子，保证并行计算结果与单线程一致
-                            row_count_seed = hash(f"{type_id}_{city_code}_{year}_{month}") % (2**31)
-                            count_rng = np.random.RandomState(row_count_seed)
-                            
-                            total_count = calculate_city_type_count(
-                                type_id, city_code, global_type_count, 
-                                year=year, month=month, rng=count_rng
-                            )
 
-                            # 跳过人口为0的记录，减少数据量
-                            if total_count == 0:
-                                continue
+            # 为每个年月生成一行
+            for year in OUTPUT_YEARS:
+                for month in OUTPUT_MONTHS:
+                    try:
+                        # 1. 计算人口数（该Type在该城市的人口）
+                        # 重要：global_type_count是该Type的年人口基数，需要分摊到12个月
+                        # 使用确定性Hash作为种子，保证并行计算结果与单线程一致
+                        row_count_seed = hash(f"{type_id}_{year}_{month}") % (2**31)
+                        count_rng = np.random.RandomState(row_count_seed)
 
-                            # 2. 计算迁移概率
-                            # 同样使用确定性Hash种子
-                            row_seed = hash(f"{year}_{month}_{type_id}_{city_code}") % (2**31)
-                            
-                            # 计算基础迁移概率
-                            migration_prob = local_migration_model.calculate_base_migration_prob(
-                                type_dict, month=month, year=year, from_city_code=city_code, noise=True
-                            )
-                            stay_prob = local_migration_model.calculate_stay_prob(migration_prob)
-                            
-                            # 计算迁移目标
-                            migration_targets = local_migration_model.calculate_migration_targets(
-                                city_code, type_dict, migration_prob, month=month, year=year, row_seed=row_seed
-                            )
-                            
-                            # 3. 构建行数据
-                            row = {
-                                'Year': year,
-                                'Month': month,
-                                'Type_ID': type_id,
-                                'From_City': f"{city_name}({city_code})",
-                                'Total_Count': total_count,
-                                'Stay_Prob': round(stay_prob, 4)
-                            }
-                            
-                            # 处理Top N目标
-                            other_prob = 0.0
-                            city_targets = []
-                            for city_code_target, city_name_target, prob in migration_targets:
-                                if city_code_target == 'Other':
-                                    other_prob = prob
-                                else:
-                                    city_targets.append((city_code_target, city_name_target, prob))
-                            
-                            for i in range(TOP_N_CITIES):
-                                if i < len(city_targets):
-                                    t_code, t_name, t_prob = city_targets[i]
-                                    row[f'To_Top{i+1}'] = f"{t_name}({t_code})"
-                                    row[f'To_Top{i+1}_Prob'] = round(t_prob, 4)
-                                else:
-                                    row[f'To_Top{i+1}'] = ''
-                                    row[f'To_Top{i+1}_Prob'] = 0.0
-                            
-                            row['To_Other_Prob'] = round(other_prob, 4)
-                            batch_rows.append(row)
-                            
-                        except Exception as e:
-                            print(f"处理单行数据时出错 (Type: {type_id}, City: {city_code}): {e}")
+                        # 计算月度人口（考虑季节性和时间噪声）
+                        # 策略：对于人口很少的Type（年人口<12），集中在部分月份而非分摊
+                        if global_type_count < 12:
+                            # 年人口<12：使用二项分布决定该月份是否有人口
+                            # 概率 = 年人口 / 12
+                            prob_this_month = global_type_count / 12.0
+                            if count_rng.random() < prob_this_month:
+                                total_count = 1  # 有人口时，该月至少1人
+                            else:
+                                total_count = 0
+                        else:
+                            # 年人口>=12：正常分摊到12个月
+                            base_monthly_count = global_type_count / 12.0
+
+                            # 添加季节性因子（某些月份人口可能更多/更少）
+                            from config import SEASONAL_FACTORS
+                            seasonal_factor = SEASONAL_FACTORS.get(month, 1.0)
+
+                            # 添加时间维度的噪声（±5%）
+                            time_noise = 1.0 + count_rng.uniform(-0.05, 0.05)
+
+                            # 计算最终月人口
+                            total_count = int(base_monthly_count * seasonal_factor * time_noise)
+
+                        total_count = max(total_count, 0)
+
+                        # 跳过人口为0的记录，减少数据量
+                        if total_count == 0:
                             continue
-                            
+
+                        # 2. 计算迁移概率
+                        # 同样使用确定性Hash种子
+                        row_seed = hash(f"{year}_{month}_{type_id}") % (2**31)
+
+                        # 计算基础迁移概率
+                        migration_prob = local_migration_model.calculate_base_migration_prob(
+                            type_dict, month=month, year=year, from_city_code=city_code, noise=True
+                        )
+                        stay_prob = local_migration_model.calculate_stay_prob(migration_prob)
+
+                        # 计算迁移目标
+                        migration_targets = local_migration_model.calculate_migration_targets(
+                            city_code, type_dict, migration_prob, month=month, year=year, row_seed=row_seed
+                        )
+
+                        # 3. 构建行数据
+                        # 查找城市名称
+                        city_name = None
+                        for c_code, c_name in CITIES:
+                            if c_code == city_code:
+                                city_name = c_name
+                                break
+                        if city_name is None:
+                            city_name = city_code
+
+                        row = {
+                            'Year': year,
+                            'Month': month,
+                            'Type_ID': type_id,
+                            'Region': city_code,  # D7就是城市编码
+                            'From_City': f"{city_name}({city_code})",
+                            'Total_Count': total_count,
+                            'Stay_Prob': round(stay_prob, 4)
+                        }
+
+                        # 处理Top N目标
+                        other_prob = 0.0
+                        city_targets = []
+                        for city_code_target, city_name_target, prob in migration_targets:
+                            if city_code_target == 'Other':
+                                other_prob = prob
+                            else:
+                                city_targets.append((city_code_target, city_name_target, prob))
+
+                        for i in range(TOP_N_CITIES):
+                            if i < len(city_targets):
+                                t_code, t_name, t_prob = city_targets[i]
+                                row[f'To_Top{i+1}'] = f"{t_name}({t_code})"
+                                row[f'To_Top{i+1}_Prob'] = round(t_prob, 4)
+                            else:
+                                row[f'To_Top{i+1}'] = ''
+                                row[f'To_Top{i+1}_Prob'] = 0.0
+
+                        row['To_Other_Prob'] = round(other_prob, 4)
+                        batch_rows.append(row)
+
+                    except Exception as e:
+                        print(f"处理单行数据时出错 (Type: {type_id}): {e}")
+                        continue
+
         return batch_rows
-        
+
     except Exception as e:
         print(f"批处理函数出错: {e}")
         traceback.print_exc()
@@ -125,66 +155,72 @@ def process_type_batch_optimized(
 
 def generate_synthesis_data_optimized() -> pd.DataFrame:
     """
-    优化版本的数据生成函数
+    优化版本的数据生成函数（使用新的城市×Type生成逻辑）
     """
-    print("开始生成合成数据 (优化多进程版本)...")
+    print("开始生成合成数据 (优化多进程版本 - 城市×Type模式)...")
     start_time = time.time()
-    
-    # 1. 生成Type和基础分布
-    print("1. 准备Type和基础分布...")
-    types = generate_all_types()
-    print(f"   总Type数: {len(types)}")
-    
-    # 生成Type计数（全局）
-    type_counts = generate_type_counts(types, type_to_id)
-    
+
+    # 1. 生成所有城市×Type组合（D1-D7）
+    print("1. 生成城市×Type组合...")
+    city_types = generate_city_types()
+    print(f"   总Type数: {len(city_types)} (1200 × {len(CITIES)}个城市)")
+
+    # 2. 基于经济学原理生成人口分布
+    print("2. 基于经济学原理生成人口分布...")
+    type_counts = generate_city_type_counts_economics_based(city_types, type_to_id)
+
     # 过滤出有效的Type
     valid_type_counts = filter_valid_types(type_counts)
     print(f"   有效Type数: {len(valid_type_counts)}")
-    
+    print(f"   总人口: {sum(valid_type_counts.values()):,}")
+
     if len(valid_type_counts) == 0:
         print("警告：没有有效的Type，请检查配置")
         return pd.DataFrame()
-    
-    # 2. 准备数据字典
-    type_id_to_dict = {type_to_id(t): t for t in types}
-    
-    # 3. 优化的并行生成数据
+
+    # 3. 准备数据字典
+    type_id_to_dict = {}
+    for type_dict in city_types:
+        type_id = type_to_id(type_dict)
+        if type_id in valid_type_counts:
+            type_id_to_dict[type_id] = type_dict
+
+    # 4. 优化的并行生成数据
     valid_type_ids = list(valid_type_counts.keys())
-    
+
     # 计算分块策略：每个进程处理适当数量的Type
     max_workers = max(1, min(cpu_count() - 1, 20))  # 增加到最多20个进程
     chunk_size = max(1, len(valid_type_ids) // (max_workers * 4))  # 创建更多更小的块，提高并行度
-    
-    print(f"2. 启动进程池 (使用 {max_workers} 个核心，每块 {chunk_size} 个Type)...")
-    
+
+    print(f"3. 启动进程池 (使用 {max_workers} 个核心，每块 {chunk_size} 个Type)...")
+
     all_rows = []
     chunks = [valid_type_ids[i:i + chunk_size] for i in range(0, len(valid_type_ids), chunk_size)]
     print(f"   共分成 {len(chunks)} 个块")
-    
+
     # 使用上下文管理器和超时控制
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         # 提交任务
         future_to_chunk = {
             executor.submit(
-                process_type_batch_optimized, 
-                chunk, 
-                type_id_to_dict, 
+                process_type_batch_optimized,
+                chunk,
+                type_id_to_dict,
                 valid_type_counts
             ): chunk for chunk in chunks
         }
-        
+
         # 进度条改为显示块的进度
         successful_chunks = 0
         with tqdm(total=len(chunks), desc="并行生成中", unit="块") as pbar:
             for future in as_completed(future_to_chunk):
                 try:
                     chunk_rows = future.result(timeout=600)  # 10分钟超时
-                    
+
                     if chunk_rows:  # 确保不是空结果
                         all_rows.extend(chunk_rows)
                         successful_chunks += 1
-                    
+
                 except Exception as e:
                     chunk = future_to_chunk[future]
                     print(f"\n[ERROR] 处理块失败 ({len(chunk)} 个Type): {e}")
@@ -201,12 +237,12 @@ def generate_synthesis_data_optimized() -> pd.DataFrame:
     if all_rows:
         print(f"平均速度: {len(all_rows) / elapsed_time:.0f} 行/秒")
 
-    # 4. 转换为DataFrame
-    print("3. 转换为DataFrame...")
+    # 5. 转换为DataFrame
+    print("4. 转换为DataFrame...")
     if not all_rows:
         print("警告：没有生成任何数据")
         return pd.DataFrame()
-    
+
     df = pd.DataFrame(all_rows)
     return df
 
@@ -233,7 +269,7 @@ def save_output_optimized(df: pd.DataFrame, output_file: Optional[str] = None):
         print(f"[SUCCESS] CSV保存完成！共 {len(df):,} 行数据")
         
         # 如果数据量不太大，同时保存Excel
-        if len(df) < 300_000:
+        if len(df) < 3000:
             excel_file = output_file.replace('.csv', '.xlsx')
             print(f"同时保存Excel格式到 {excel_file}...")
             with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:

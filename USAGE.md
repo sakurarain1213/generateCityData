@@ -1,7 +1,30 @@
-# 人口迁徙数据生成与查询系统
+# 人口迁徙数据生成使用手册
 
-## 📊 项目简介
-基于经济学模型的大规模人口迁移数据合成系统，生成500万人口基数的城市间迁移预测数据。
+
+## 🏙️ 城市基础数据生成
+
+### 快速生成城市节点数据（city_node.jsonl）
+
+使用 `synthesis/generate_city_data_cn.py` 脚本可生成包含337个城市（333个地级市 + 4个直辖市）的基础数据文件：
+
+```bash
+# 生成城市节点数据（包含经济、人口、坐标等属性）
+python synthesis/generate_city_data_cn.py
+```
+
+**生成数据包含：**
+- 城市ID（按行政区划代码规则生成）
+- 城市名称与层级（一线/新一线/二线/其他）
+- 地理坐标（经纬度）
+- 经济指标（人均GDP、产业结构、收入水平）
+- 生活成本（房价、租金、CPI）
+- 公共资源（医疗、教育评分）
+- 人口规模、失业率、通勤时间等
+
+**输出文件：** `city_node.jsonl`（每行一个城市的JSON对象）
+
+---
+
 
 ## 🚀 快速开始
 
@@ -10,7 +33,7 @@
 # 1. 生成完整数据（数据生成 + 数据库构建）
 python run_optimized.py
 
-# 2. 查询和分析数据  
+# 2. 查询和测试【和生成迁徙分布的jsonl】（几秒钟）
 python local_db/query_test.py
 ```
 
@@ -22,7 +45,7 @@ python synthesis/main_optimized.py
 # 步骤2: 构建DuckDB数据库（约1-2分钟）
 python local_db/optimized_data_generator.py
 
-# 步骤3: 查询和测试【和生成jsonl】（几秒钟）
+# 步骤3: 查询和测试【和生成迁徙分布的jsonl】（几秒钟）
 python local_db/query_test.py
 ```
 

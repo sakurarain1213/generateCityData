@@ -1,0 +1,10 @@
+
+# 维度定义
+DIMENSIONS = {
+    'D1': {'name': '性别', 'values': ['M', 'F']},
+    'D2': {'name': '生命周期', 'values': ['16-24', '25-34', '35-49', '50-60', '60+']},
+    'D3': {'name': '学历', 'values': ['EduLo', 'EduMid', 'EduHi']},
+    'D4': {'name': '行业赛道', 'values': ['Agri', 'Mfg', 'Service', 'Wht']},
+    'D5': {'name': '相对收入', 'values': ['IncL', 'IncML', 'IncM', 'IncMH', 'IncH']},
+    'D6': {'name': '家庭状态', 'values': ['Split', 'Unit']},
+}

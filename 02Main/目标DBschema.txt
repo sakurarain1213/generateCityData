@@ -1,0 +1,155 @@
+表名：migration_data
+
+列名和类型：
+------------------------------------------------------------
+Year                           INTEGER
+Month                          INTEGER
+Type_ID                        VARCHAR
+Birth_Region                   VARCHAR
+From_City                      VARCHAR
+Total_Count                    INTEGER
+Stay_Prob                      DOUBLE
+Outflow_Count                  INTEGER
+To_Top1                        VARCHAR
+To_Top1_Count                  INTEGER
+To_Top2                        VARCHAR
+To_Top2_Count                  INTEGER
+To_Top3                        VARCHAR
+To_Top3_Count                  INTEGER
+To_Top4                        VARCHAR
+To_Top4_Count                  INTEGER
+To_Top5                        VARCHAR
+To_Top5_Count                  INTEGER
+To_Top6                        VARCHAR
+To_Top6_Count                  INTEGER
+To_Top7                        VARCHAR
+To_Top7_Count                  INTEGER
+To_Top8                        VARCHAR
+To_Top8_Count                  INTEGER
+To_Top9                        VARCHAR
+To_Top9_Count                  INTEGER
+To_Top10                       VARCHAR
+To_Top10_Count                 INTEGER
+To_Top11                       VARCHAR
+To_Top11_Count                 INTEGER
+To_Top12                       VARCHAR
+To_Top12_Count                 INTEGER
+To_Top13                       VARCHAR
+To_Top13_Count                 INTEGER
+To_Top14                       VARCHAR
+To_Top14_Count                 INTEGER
+To_Top15                       VARCHAR
+To_Top15_Count                 INTEGER
+To_Top16                       VARCHAR
+To_Top16_Count                 INTEGER
+To_Top17                       VARCHAR
+To_Top17_Count                 INTEGER
+To_Top18                       VARCHAR
+To_Top18_Count                 INTEGER
+To_Top19                       VARCHAR
+To_Top19_Count                 INTEGER
+To_Top20                       VARCHAR
+To_Top20_Count                 INTEGER
+
+随机样例数据（2行）：
+------------------------------------------------------------
+
+样例 1:
+  Year: 2001
+  Month: 12
+  Type_ID: M_30_EduMid_Service_IncH_Unit_3407
+  Birth_Region: 3407
+  From_City: 铜陵(3407)
+  Total_Count: 9
+  Stay_Prob: 0.932554
+  Outflow_Count: 8
+  To_Top1: 上海(3100)
+  To_Top1_Count: 2
+  To_Top2: 合肥(3401)
+  To_Top2_Count: 2
+  To_Top3: 芜湖(3402)
+  To_Top3_Count: 0
+  To_Top4: 安庆(3408)
+  To_Top4_Count: 0
+  To_Top5: 宣城(3418)
+  To_Top5_Count: 0
+  To_Top6: 北京(1100)
+  To_Top6_Count: 0
+  To_Top7: 南京(3201)
+  To_Top7_Count: 0
+  To_Top8: 杭州(3301)
+  To_Top8_Count: 0
+  To_Top9: 温州(3303)
+  To_Top9_Count: 0
+  To_Top10: 滁州(3411)
+  To_Top10_Count: 0
+  To_Top11: 黄山(3410)
+  To_Top11_Count: 0
+  To_Top12: 苏州(3205)
+  To_Top12_Count: 0
+  To_Top13: 宁波(3302)
+  To_Top13_Count: 0
+  To_Top14: 金华(3307)
+  To_Top14_Count: 0
+  To_Top15: 淮南(3404)
+  To_Top15_Count: 0
+  To_Top16: 六安(3415)
+  To_Top16_Count: 0
+  To_Top17: 蚌埠(3403)
+  To_Top17_Count: 0
+  To_Top18: 天津(1200)
+  To_Top18_Count: 0
+  To_Top19: 无锡(3202)
+  To_Top19_Count: 0
+  To_Top20: 武汉(4201)
+  To_Top20_Count: 0
+
+样例 2:
+  Year: 2003
+  Month: 12
+  Type_ID: F_55_EduLo_Service_IncH_Unit_6301
+  Birth_Region: 6301
+  From_City: 西宁(6301)
+  Total_Count: 30
+  Stay_Prob: 0.879435
+  Outflow_Count: 26
+  To_Top1: 北京(1100)
+  To_Top1_Count: 1
+  To_Top2: 包头(1502)
+  To_Top2_Count: 1
+  To_Top3: 武威(6206)
+  To_Top3_Count: 1
+  To_Top4: 上海(3100)
+  To_Top4_Count: 1
+  To_Top5: 重庆(5000)
+  To_Top5_Count: 1
+  To_Top6: 张掖(6207)
+  To_Top6_Count: 1
+  To_Top7: 金昌(6203)
+  To_Top7_Count: 1
+  To_Top8: 深圳(4403)
+  To_Top8_Count: 0
+  To_Top9: 白银(6204)
+  To_Top9_Count: 0
+  To_Top10: 吴忠(6403)
+  To_Top10_Count: 0
+  To_Top11: 乌海(1503)
+  To_Top11_Count: 0
+  To_Top12: 哈密(6505)
+  To_Top12_Count: 0
+  To_Top13: 榆林(6108)
+  To_Top13_Count: 0
+  To_Top14: 大连(2102)
+  To_Top14_Count: 0
+  To_Top15: 温州(3303)
+  To_Top15_Count: 0
+  To_Top16: 天津(1200)
+  To_Top16_Count: 0
+  To_Top17: 石嘴山(6402)
+  To_Top17_Count: 0
+  To_Top18: 泉州(3505)
+  To_Top18_Count: 0
+  To_Top19: 大同(1402)
+  To_Top19_Count: 0
+  To_Top20: 克拉玛依(6502)
+  To_Top20_Count: 0

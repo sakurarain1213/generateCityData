@@ -33,11 +33,15 @@ GLOBAL_RANDOM_SEED = 42
 np.random.seed(GLOBAL_RANDOM_SEED)
 
 # 路径配置
-BASE_DIR = r"C:\Users\w1625\Desktop\CityDBGenerate"
+# 获取脚本所在目录的父目录 (02Main)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+MAIN_DIR = os.path.dirname(SCRIPT_DIR)
+
+BASE_DIR = MAIN_DIR
 INPUT_EXCEL = os.path.join(BASE_DIR, r"0211constrain2\constrain2.xlsx")
 IPF_DATA_DIR = os.path.join(BASE_DIR, r"0211处理后城市数据")
-CITY_JSONL_PATH = "city.jsonl"
-DB_FILE = "output.db"
+CITY_JSONL_PATH = os.path.join(BASE_DIR, "city.jsonl")
+DB_FILE = os.path.join(BASE_DIR, "local_migration_data.db")
 TABLE_NAME = "migration_data"
 
 # 维度定义 (保持与 external script 一致以便映射)

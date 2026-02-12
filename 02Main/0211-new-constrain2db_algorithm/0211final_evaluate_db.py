@@ -398,8 +398,12 @@ class DBValidator:
 # ==========================================
 if __name__ == "__main__":
     # 配置路径
-    DB_PATH = "output.db"
-    EXCEL_DIR = r"C:\Users\w1625\Desktop\CityDBGenerate\0211处理后城市数据"
+    # 获取脚本所在目录的父目录 (02Main)
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+    MAIN_DIR = os.path.dirname(SCRIPT_DIR)
+
+    DB_PATH = os.path.join(MAIN_DIR, "local_migration_data.db")
+    EXCEL_DIR = os.path.join(MAIN_DIR, r"0211处理后城市数据")
     
     # 验证对象初始化
     validator = DBValidator(DB_PATH, EXCEL_DIR)

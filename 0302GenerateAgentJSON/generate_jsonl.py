@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.rcParams['font.sans-serif'] = ['SimHei']  # 用于显示中文
 matplotlib.rcParams['axes.unicode_minus'] = False  # 用于显示负号
-
+# 0304更改 每年都有新的ground truth总人口数据。
 # cd "C:\Users\w1625\Desktop\db-generate\0302GenerateAgentJSON" ; python generate_jsonl.py
 
 # 配置参数

@@ -39,7 +39,7 @@ MAIN_DIR = os.path.dirname(SCRIPT_DIR)
 
 BASE_DIR = MAIN_DIR
 INPUT_EXCEL = os.path.join(BASE_DIR, r"0211constrain2\constrain2.xlsx")
-IPF_DATA_DIR = os.path.join(BASE_DIR, r"0211处理后城市数据")
+IPF_DATA_DIR = os.path.join(BASE_DIR, r"0211constrain2")
 CITY_JSONL_PATH = os.path.join(BASE_DIR, "city.jsonl")
 DB_FILE = os.path.join(BASE_DIR, "local_migration_data.db")
 TABLE_NAME = "migration_data"

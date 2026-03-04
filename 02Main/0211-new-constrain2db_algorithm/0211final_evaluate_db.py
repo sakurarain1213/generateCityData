@@ -403,7 +403,7 @@ if __name__ == "__main__":
     MAIN_DIR = os.path.dirname(SCRIPT_DIR)
 
     DB_PATH = os.path.join(MAIN_DIR, "local_migration_data.db")
-    EXCEL_DIR = os.path.join(MAIN_DIR, r"0211处理后城市数据")
+    EXCEL_DIR = os.path.join(MAIN_DIR, r"0211constrain2")
     
     # 验证对象初始化
     validator = DBValidator(DB_PATH, EXCEL_DIR)

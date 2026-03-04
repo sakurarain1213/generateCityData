@@ -8,7 +8,7 @@ import pandas as pd
 from pathlib import Path
 
 # 文件路径
-xlsx_file = Path(r"C:\Users\w1625\Desktop\CityDBGenerate\0211constrain2\constrain2.xlsx")
+xlsx_file = Path(r"C:\Users\w1625\Desktop\db-generate\02Main\0211constrain2\constrain2.xlsx")
 output_file = Path(__file__).parent / "migration_summary.txt"
 
 def process_migration_data():

@@ -9,11 +9,11 @@ matplotlib.rcParams['axes.unicode_minus'] = False  # 用于显示负号
 # cd "C:\Users\w1625\Desktop\db-generate\0302GenerateAgentJSON" ; python generate_jsonl.py
 
 # 配置参数
-THRESHOLD_K = 2000  # 阈值，可以根据需要调整
+THRESHOLD_K = 0  # 阈值，可以根据需要调整
 TARGET_YEAR = 2000
 DB_PATH = "local_migration_data.db"
 OUTPUT_FILE1 = "type_features.jsonl"
-OUTPUT_FILE2 = "migration_states.jsonl"
+OUTPUT_DIR2 = "migration_states"  # 输出文件夹
 
 
 def parse_type_id(type_id):
@@ -39,69 +39,98 @@ def parse_type_id(type_id):
 
 
 def generate_jsonl_files():
-    """生成两个 JSONL 文件"""
+    """生成 type_features.jsonl 和逐年的 migration_states_YYYY.jsonl 文件"""
 
     # 连接数据库
     conn = duckdb.connect(DB_PATH)
 
+    # 查询所有年份
+    years_query = "SELECT DISTINCT Year FROM migration_data ORDER BY Year ASC"
+    years = [row[0] for row in conn.execute(years_query).fetchall()]
+    print(f"找到 {len(years)} 个年份: {years}")
+
     # 查询 2000 年且 Total_Count >= THRESHOLD_K 的唯一 Type_ID（升序排列）
     query = f"""
-    SELECT DISTINCT Type_ID, Total_Count
+    SELECT DISTINCT Type_ID
     FROM migration_data
     WHERE Year = {TARGET_YEAR} AND Total_Count >= {THRESHOLD_K}
     ORDER BY Type_ID ASC
     """
 
-    print(f"正在查询 {TARGET_YEAR} 年 Total_Count >= {THRESHOLD_K} 的数据...")
-    results = conn.execute(query).fetchall()
+    print(f"\n正在查询 {TARGET_YEAR} 年 Total_Count >= {THRESHOLD_K} 的数据...")
+    type_ids = [row[0] for row in conn.execute(query).fetchall()]
 
-    if not results:
+    if not type_ids:
         print(f"警告：没有找到符合条件的数据（Year={TARGET_YEAR}, Total_Count>={THRESHOLD_K}）")
         conn.close()
         return
 
-    print(f"找到 {len(results)} 条唯一的 Type_ID 记录")
+    print(f"找到 {len(type_ids)} 条唯一的 Type_ID 记录")
+
+    # 创建输出文件夹
+    output_dir = Path(OUTPUT_DIR2)
+    output_dir.mkdir(exist_ok=True)
+    print(f"\n创建输出文件夹: {output_dir}")
 
     # 生成文件1: type_features.jsonl
-    with open(OUTPUT_FILE1, 'w', encoding='utf-8') as f1, \
-         open(OUTPUT_FILE2, 'w', encoding='utf-8') as f2:
-
-        for type_id, total_count in results:
+    print(f"\n正在生成 {OUTPUT_FILE1}...")
+    with open(OUTPUT_FILE1, 'w', encoding='utf-8') as f1:
+        for type_id in type_ids:
             try:
-                # 解析 Type_ID
                 features = parse_type_id(type_id)
-
-                # 写入文件1: type_features.jsonl
                 f1.write(json.dumps(features, ensure_ascii=False) + '\n')
-
-                # 写入文件2: migration_states.jsonl
-                # city_population 使用 dialect（最后一个维度）作为城市代码
-                city_code = features["dialect"]
-                migration_state = {
-                    "id": type_id,
-                    "city_population": {city_code: int(total_count)}
-                }
-                f2.write(json.dumps(migration_state, ensure_ascii=False) + '\n')
-
             except Exception as e:
                 print(f"处理 Type_ID {type_id} 时出错: {e}")
                 continue
 
+    # 为每个年份生成 migration_states_YYYY.jsonl
+    for year in years:
+        output_file = output_dir / f"migration_states_{year}.jsonl"
+        print(f"\n正在生成 {output_file}...")
+
+        # 查询该年份的数据
+        year_query = f"""
+        SELECT Type_ID, Total_Count
+        FROM migration_data
+        WHERE Year = {year} AND Type_ID IN ({','.join([f"'{tid}'" for tid in type_ids])})
+        ORDER BY Type_ID ASC
+        """
+
+        year_results = conn.execute(year_query).fetchall()
+
+        with open(output_file, 'w', encoding='utf-8') as f:
+            for type_id, total_count in year_results:
+                try:
+                    features = parse_type_id(type_id)
+                    city_code = features["dialect"]
+                    migration_state = {
+                        "id": type_id,
+                        "city_population": {city_code: int(total_count)}
+                    }
+                    f.write(json.dumps(migration_state, ensure_ascii=False) + '\n')
+                except Exception as e:
+                    print(f"  处理 Type_ID {type_id} 时出错: {e}")
+                    continue
+
+        print(f"  完成，共 {len(year_results)} 条记录")
+
     conn.close()
 
     # 验证生成的文件
-    print(f"\n生成完成！")
-    print(f"文件1: {OUTPUT_FILE1}")
-    print(f"文件2: {OUTPUT_FILE2}")
-
-    # 统计行数
+    print(f"\n{'='*60}")
+    print(f"生成完成！")
+    print(f"{'='*60}")
+    print(f"\n文件1: {OUTPUT_FILE1}")
     with open(OUTPUT_FILE1, 'r', encoding='utf-8') as f:
         count1 = sum(1 for _ in f)
-    with open(OUTPUT_FILE2, 'r', encoding='utf-8') as f:
-        count2 = sum(1 for _ in f)
+    print(f"  唯一 Type 数量: {count1}")
 
-    print(f"\n唯一 Type 数量（文件1行数）: {count1}")
-    print(f"唯一 Type 数量（文件2行数）: {count2}")
+    print(f"\n文件夹: {OUTPUT_DIR2}/")
+    for year in years:
+        output_file = output_dir / f"migration_states_{year}.jsonl"
+        with open(output_file, 'r', encoding='utf-8') as f:
+            count = sum(1 for _ in f)
+        print(f"  migration_states_{year}.jsonl: {count} 条记录")
 
     # 显示前3条样例
     print(f"\n{OUTPUT_FILE1} 前3条样例:")
@@ -111,8 +140,9 @@ def generate_jsonl_files():
                 break
             print(f"  {line.strip()}")
 
-    print(f"\n{OUTPUT_FILE2} 前3条样例:")
-    with open(OUTPUT_FILE2, 'r', encoding='utf-8') as f:
+    print(f"\nmigration_states_{years[0]}.jsonl 前3条样例:")
+    first_year_file = output_dir / f"migration_states_{years[0]}.jsonl"
+    with open(first_year_file, 'r', encoding='utf-8') as f:
         for i, line in enumerate(f):
             if i >= 3:
                 break

@@ -14,6 +14,29 @@ TARGET_YEAR = 2000
 DB_PATH = "local_migration_data.db"
 OUTPUT_FILE1 = "type_features.jsonl"
 OUTPUT_DIR2 = "migration_states"  # 输出文件夹
+CITY_NODES_FILE = "../0125MAIN/city_nodes.jsonl"  # 城市元数据文件
+
+
+def load_valid_cities():
+    """从 city_nodes.jsonl 加载合法的城市列表"""
+    valid_cities = set()
+    city_names = {}
+
+    # 处理相对路径，支持从不同目录运行
+    import os
+    script_dir = Path(__file__).parent
+    city_file = script_dir / CITY_NODES_FILE
+
+    with open(city_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            city = json.loads(line.strip())
+            city_id = city['city_id']
+            city_name = city['name']
+            valid_cities.add(city_id)
+            city_names[city_id] = city_name
+
+    print(f"从 {city_file} 加载了 {len(valid_cities)} 个合法城市")
+    return valid_cities, city_names
 
 
 def parse_type_id(type_id):
@@ -41,6 +64,9 @@ def parse_type_id(type_id):
 def generate_jsonl_files():
     """生成 type_features.jsonl 和逐年的 migration_states_YYYY.jsonl 文件"""
 
+    # 加载合法城市列表
+    valid_cities, city_names = load_valid_cities()
+
     # 连接数据库
     conn = duckdb.connect(DB_PATH)
 
@@ -58,14 +84,36 @@ def generate_jsonl_files():
     """
 
     print(f"\n正在查询 {TARGET_YEAR} 年 Total_Count >= {THRESHOLD_K} 的数据...")
-    type_ids = [row[0] for row in conn.execute(query).fetchall()]
+    all_type_ids = [row[0] for row in conn.execute(query).fetchall()]
 
-    if not type_ids:
+    if not all_type_ids:
         print(f"警告：没有找到符合条件的数据（Year={TARGET_YEAR}, Total_Count>={THRESHOLD_K}）")
         conn.close()
         return
 
-    print(f"找到 {len(type_ids)} 条唯一的 Type_ID 记录")
+    print(f"数据库中找到 {len(all_type_ids)} 条唯一的 Type_ID 记录")
+
+    # 过滤：只保留城市代码在 valid_cities 中的 Type_ID
+    type_ids = []
+    filtered_count = 0
+    invalid_cities = set()
+
+    for type_id in all_type_ids:
+        try:
+            features = parse_type_id(type_id)
+            city_code = features["dialect"]
+            if city_code in valid_cities:
+                type_ids.append(type_id)
+            else:
+                filtered_count += 1
+                invalid_cities.add(city_code)
+        except Exception as e:
+            print(f"解析 Type_ID {type_id} 时出错: {e}")
+            filtered_count += 1
+
+    print(f"过滤后保留 {len(type_ids)} 条 Type_ID（过滤掉 {filtered_count} 条）")
+    if invalid_cities:
+        print(f"过滤掉的城市代码: {sorted(invalid_cities)}")
 
     # 创建输出文件夹
     output_dir = Path(OUTPUT_DIR2)
@@ -99,20 +147,28 @@ def generate_jsonl_files():
         year_results = conn.execute(year_query).fetchall()
 
         with open(output_file, 'w', encoding='utf-8') as f:
+            written_count = 0
+            skipped_count = 0
             for type_id, total_count in year_results:
                 try:
                     features = parse_type_id(type_id)
                     city_code = features["dialect"]
+                    # 再次检查城市代码是否合法（双重保险）
+                    if city_code not in valid_cities:
+                        skipped_count += 1
+                        continue
                     migration_state = {
                         "id": type_id,
                         "city_population": {city_code: int(total_count)}
                     }
                     f.write(json.dumps(migration_state, ensure_ascii=False) + '\n')
+                    written_count += 1
                 except Exception as e:
                     print(f"  处理 Type_ID {type_id} 时出错: {e}")
+                    skipped_count += 1
                     continue
 
-        print(f"  完成，共 {len(year_results)} 条记录")
+        print(f"  完成，写入 {written_count} 条记录（跳过 {skipped_count} 条）")
 
     conn.close()
 
@@ -152,6 +208,9 @@ def generate_jsonl_files():
 def plot_population_distribution():
     """绘制 2000 年人口分布的长尾图（降序柱状图）"""
 
+    # 加载合法城市列表
+    valid_cities, city_names = load_valid_cities()
+
     print(f"\n正在查询数据...")
     conn = duckdb.connect(DB_PATH)
 
@@ -163,14 +222,25 @@ def plot_population_distribution():
     ORDER BY Total_Count DESC
     """
 
-    results = conn.execute(query).fetchall()
+    all_results = conn.execute(query).fetchall()
     conn.close()
 
-    if not results:
+    if not all_results:
         print("没有数据可绘制")
         return
 
-    print(f"查询完成，共 {len(results):,} 条数据")
+    # 过滤：只保留城市代码在 valid_cities 中的数据
+    results = []
+    for type_id, total_count in all_results:
+        try:
+            features = parse_type_id(type_id)
+            city_code = features["dialect"]
+            if city_code in valid_cities:
+                results.append((type_id, total_count))
+        except:
+            pass
+
+    print(f"查询完成，原始数据 {len(all_results):,} 条，过滤后 {len(results):,} 条")
 
     type_ids = [r[0] for r in results]
     populations = [r[1] for r in results]
